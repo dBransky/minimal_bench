@@ -15,7 +15,7 @@
 #define ARRNAGE_BY_ROWS (1 << 19)
 void start_vmstat(const char *test_name) {
     char command[256];
-    snprintf(command, sizeof(command), "sudo vmstat -n 1 > /tmp/%s_vmstat.txt &", test_name);
+    snprintf(command, sizeof(command), "sudo vmstat -n 1 > %s_vmstat.txt &", test_name);
     system(command);
 }
 void stop_vmstat(const char *test_name) {
@@ -82,6 +82,12 @@ int main(int argc, char *argv[]) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
     }
+    printf("swapfiles: %d\n", n_swapfiles);
+    printf("buffer_size: %llu\n", buffer_size);
+    printf("iterations: %d\n", iterations);
+    printf("arrange_by_rows: %s\n", (swap_flags & ARRNAGE_BY_ROWS) ? "true" : "false");
+    printf("write: %s\n", write ? "true" : "false");
+
 
     for (int i = 1; i <= n_swapfiles; i++) {
         char filename[256];
@@ -94,8 +100,8 @@ int main(int argc, char *argv[]) {
         perror("Failed to map memory");
         return EXIT_FAILURE;
     }
-    for (int i = 0; i < buffer_size/sizeof(4); i++) {
-        mapped[i] = i;
+    for (int i = 0; i < buffer_size/sizeof(int); i++) {
+        mapped[i] = i+1;
     }
     unsigned long long *latency = malloc(sizeof(unsigned long long) * iterations);
     if (latency == NULL) {
