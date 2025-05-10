@@ -23,6 +23,11 @@ void stop_vmstat(const char *test_name) {
     snprintf(command, sizeof(command), "sudo pkill vmstat");
     system(command);
 }
+void mkswap(const char *filename){
+    char command[256];
+    snprintf(command, sizeof(command), "mkswap %s", filename);
+    system(command);
+}
 void enable_swap(const char *filename, int swap_flags) {
     // printf("Enabling swap on %s\n", filename);
     int ret = syscall(SYS_swapon, filename, swap_flags);
@@ -92,6 +97,7 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i <= n_swapfiles; i++) {
         char filename[256];
         snprintf(filename, sizeof(filename), "/scratch/vma_swaps/swapfile_%d.swap", i);
+        mkswap(filename);
         enable_swap(filename,swap_flags);
     }
 
