@@ -13,6 +13,10 @@
 #include <time.h>
 
 #define ARRNAGE_BY_ROWS (1 << 19)
+#define PAGE_SIZE 4096
+struct pg{
+    int values[PAGE_SIZE/sizeof(int)];
+} typedef pg_t;
 void start_vmstat(const char *test_name) {
     char command[256];
     snprintf(command, sizeof(command), "sudo vmstat -n 1 > %s_vmstat.txt &", test_name);
@@ -45,7 +49,7 @@ void disable_swap(const char *filename) {
 
 
 void print_usage(const char *prog_name) {
-    fprintf(stderr, "Usage: %s -n <test_name> -s <num_swapfiles> -b <buffer_size> -i <iterations> -r <arrange_by_rows?> -w <write?>\n", prog_name);
+    fprintf(stderr, "Usage: %s -n <test_name> -s <num_swapfiles> -b <buffer_size> -i <iterations> -r <arrange_by_rows?> -w <write?> -f <file_path>\n", prog_name);
 }
 
 int main(int argc, char *argv[]) {
@@ -55,9 +59,12 @@ int main(int argc, char *argv[]) {
     int swap_flags=0;
     bool write = false;
     char* test_name = "default";
+    char* file_path = NULL;
+    int* mapped;
+    int fd;
 
     int opt;
-    while ((opt = getopt(argc, argv, "s:b:i:rwn")) != -1) {
+    while ((opt = getopt(argc, argv, "f:s:b:i:rwn")) != -1) {
         switch (opt) {
             case 'n':
                 test_name = optarg;
@@ -76,6 +83,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'w':
                 write = true;
+                break;
+            case 'f':
+                file_path = optarg;
                 break;
             default:
                 print_usage(argv[0]);
@@ -100,8 +110,16 @@ int main(int argc, char *argv[]) {
         mkswap(filename);
         enable_swap(filename,swap_flags);
     }
-
-    int *mapped = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (file_path){
+        fd = open(file_path,O_RDWR);
+        if (fd < 0){
+            perror("failed to open file");
+            return EXIT_FAILURE;
+        }
+        mapped = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    }
+    else
+        mapped = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mapped == MAP_FAILED) {
         perror("Failed to map memory");
         return EXIT_FAILURE;
@@ -137,6 +155,8 @@ int main(int argc, char *argv[]) {
         snprintf(filename, sizeof(filename), "/scratch/vma_swaps/swapfile_%d.swap", i);
         disable_swap(filename);
     }
+    if (file_path)
+        close(fd);
     // create file for test 
     char filename[256];
     snprintf(filename, sizeof(filename), "%s.csv", test_name);
